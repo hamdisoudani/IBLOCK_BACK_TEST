@@ -113,6 +113,29 @@ export class BlocksController {
                   type: "stop_robot",
                 },
               ]
+            },
+            {
+              "kind": "category",
+              "name": "Loops",
+              "colour": "#F0A500",
+              "contents": [
+                {
+                  kind: "block",
+                  type: "controls_repeat",
+                },
+                {
+                  kind: "block",
+                  type: "controls_for",
+                },
+                {
+                  kind: "block",
+                  type: "controls_whileUntil",
+                },
+                {
+                  kind: "block",
+                  type: "controls_forEach",
+                },
+              ]
             }
           ]
         }
