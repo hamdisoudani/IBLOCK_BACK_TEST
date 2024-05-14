@@ -8,7 +8,7 @@ import { accessTokenType } from 'src/utils/types/access_token.type';
 
 @WebSocketGateway({
   cors: {
-    origin: 'http://localhost:3000',
+    origin: 'https://iblock-front-test.onrender.com',
     methods: ['GET', 'POST'],
   },
 })
