@@ -5,7 +5,7 @@ import { Server, Socket } from 'socket.io';
 @WebSocketGateway({
   namespace: 'robot',
   cors: {
-    origin: '*',
+    origin: 'http://localhost:3000',
     methods: ['GET', 'POST'],
   },
 })

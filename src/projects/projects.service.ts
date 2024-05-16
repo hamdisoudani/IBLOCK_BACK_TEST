@@ -12,6 +12,8 @@ import { StoreUserWorkDto } from './dto/store_user_work.dto';
 import { customAlphabet } from 'nanoid';
 import { CUSTOM_INVITATION_CODE_ALPHABET } from 'src/utils/constant/security.constant';
 import { UpdateProjectDto } from './dto/update_project.dto';
+import { StoreCopyOfProjectDto } from './dto/store_copy_of_project_data.dto';
+import { DeleteUnsavedProjectCopyDto } from './dto/delete_unsaved_project_copy.dto';
 
 @Injectable()
 export class ProjectsService {
@@ -243,21 +245,118 @@ export class ProjectsService {
             if(isOldDataExists) {
                 const oldRecord = await this.ProjectWorkHistoryModel.findOne({ projectId: new Types.ObjectId(projectId), userId: new Types.ObjectId(user.userId) });
                 oldRecord.workData = body.workData;
+                oldRecord.mainCopy = "";
                 await oldRecord.save();
 
                 return {
-                    message: "Work data updated successfully X"
+                    message: "Work data updated successfully"
                 }
             }
             // If the user doesn't have old record then create a new one
             const newRecord = new this.ProjectWorkHistoryModel({
                 userId: new Types.ObjectId(user.userId),
                 projectId: new Types.ObjectId(projectId),
-                workData
+                workData,
+                mainCopy: ""
             });
             await newRecord.save();
             return {
                 message: "Work data updated successfully"
+            }
+        } catch (error) {
+            if(error instanceof BadRequestException) {
+                throw error;
+            }
+            throw new InternalServerErrorException(error);
+        }
+    }
+
+    async storeCopyOfTheCurrentUserWork(body: StoreCopyOfProjectDto, user: accessTokenType): Promise<{ message: string }> {
+        try {
+            const {workCopy, projectId} = body;
+            // Check if the project exist
+            const isProjectExists = await this.projectModel.exists({ _id: projectId });
+            if(!isProjectExists) throw new BadRequestException("Project not found");
+
+            const project = await this.getProjectById(projectId);
+            const { selectedProfile } = await this.profileService.getUserProfiles(user);
+
+            // Check if the current user profile type match the project type
+            if(selectedProfile.type == ProfileType.PERSONAL &&  project.projectType == ProjectType.TEAM) throw new BadRequestException("You're not authorized to add work data to this project");
+            // Check the role of the user in the current project if he is owner or member
+            let role = "";  
+            if(project.projectOwner.equals(new Types.ObjectId(user.userId))) role = "owner";
+            if(project.members.find(member => member._id.equals(new Types.ObjectId(user.userId)))) role = "member";  
+
+            if(role == "") throw new UnauthorizedException("You're not authorized to perform this action");
+            // Check if the user is a member of the project
+            //if(!project.members.includes(new Types.ObjectId(user.userId))) throw new BadRequestException("You're not a member of this project");
+
+            // Check if the user already have an old data with the project
+            const isOldDataExists = await this.ProjectWorkHistoryModel.exists({ projectId: new Types.ObjectId(projectId) });
+
+            // If there is old record then update the work data
+            if(isOldDataExists) {
+                const oldRecord = await this.ProjectWorkHistoryModel.findOne({ projectId: new Types.ObjectId(projectId) });
+                oldRecord.mainCopy = workCopy;
+                await oldRecord.save();
+
+                return {
+                    message: "Work data updated successfully"
+                }
+            }
+            // If the user doesn't have old record then create a new one
+            const newRecord = new this.ProjectWorkHistoryModel({
+                projectId: new Types.ObjectId(projectId),
+                mainCopy: workCopy
+            });
+            await newRecord.save();
+            return {
+                message: "Work data updated successfully"
+            }
+        } catch (error) {
+            if(error instanceof BadRequestException) {
+                throw error;
+            }
+            throw new InternalServerErrorException(error);
+        }
+    }
+
+    async deleteTheCurrentCopyOfTheUserWork(body: DeleteUnsavedProjectCopyDto, user: accessTokenType): Promise<{ message: string }> {
+        try {
+            const {projectId} = body;
+            // Check if the project exist
+            const isProjectExists = await this.projectModel.exists({ _id: projectId });
+            if(!isProjectExists) throw new BadRequestException("Project not found");
+
+            const project = await this.getProjectById(projectId);
+            const { selectedProfile } = await this.profileService.getUserProfiles(user);
+
+            // Check if the current user profile type match the project type
+            if(selectedProfile.type == ProfileType.PERSONAL &&  project.projectType == ProjectType.TEAM) throw new BadRequestException("You're not authorized to add work data to this project");
+            // Check the role of the user in the current project if he is owner or member
+            let role = "";  
+            if(project.projectOwner.equals(new Types.ObjectId(user.userId))) role = "owner";
+            if(project.members.find(member => member._id.equals(new Types.ObjectId(user.userId)))) role = "member";  
+
+            if(role == "") throw new UnauthorizedException("You're not authorized to perform this action");
+            // Check if the user is a member of the project
+            //if(!project.members.includes(new Types.ObjectId(user.userId))) throw new BadRequestException("You're not a member of this project");
+
+            // Check if the user already have an old data with the project
+            const isOldDataExists = await this.ProjectWorkHistoryModel.exists({ projectId: new Types.ObjectId(projectId) });
+
+            // If there is old record then update the work data
+            if(isOldDataExists) {
+                const oldRecord = await this.ProjectWorkHistoryModel.findOne({ projectId: new Types.ObjectId(projectId) });
+                oldRecord.mainCopy = "";
+                await oldRecord.save();
+                return {
+                    message: "Work data deleted successfully"
+                }
+            }
+            return {
+                message: "Work data deleted successfully"
             }
         } catch (error) {
             if(error instanceof BadRequestException) {

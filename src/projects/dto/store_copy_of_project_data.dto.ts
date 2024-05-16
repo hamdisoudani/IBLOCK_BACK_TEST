@@ -1,11 +1,11 @@
 import { IsJSON, IsMongoId, IsNotEmpty, IsObject } from "class-validator";
 
-export class StoreUserWorkDto {
+export class StoreCopyOfProjectDto {
     @IsMongoId()
     @IsNotEmpty()
     projectId: string;
 
 
     @IsNotEmpty()
-    workData: string;
+    workCopy: string;
 }

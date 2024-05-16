@@ -8,7 +8,7 @@ import { accessTokenType } from 'src/utils/types/access_token.type';
 
 @WebSocketGateway({
   cors: {
-    origin: 'https://iblock-front-test.onrender.com',
+    origin: 'http://localhost:3000',
     methods: ['GET', 'POST'],
   },
 })
@@ -29,7 +29,6 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
   async handleConnection(client: any) {
     const projectId = client.projectID as string; 
     const user = client.user as accessTokenType; // User is set in the middleware
-
     client.join(`project-${projectId}`); // Join the project's room
     
     const roomUsers = this.getConnectedUsersInProject(projectId);
@@ -65,6 +64,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
       payload,
       user: client.user as accessTokenType
     }
+    console.log("payload", payload)
     return client.broadcast.to(`project-${projectId}`).emit('cursor_changes', data);
   }
   
@@ -139,5 +139,22 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
       user: client.user as accessTokenType
     }
     return client.broadcast.to(`project-${projectId}`).emit('freeBlock', data);
+  }
+
+  @SubscribeMessage('workSpaceCopyData')
+  async handleWorkspaceUpdates(client: any, payload: any) {
+    try {
+      const projectId = client.projectID as string;
+      const payloadData = {
+        workCopy: payload,
+        projectId
+      };
+      const user = client.user as accessTokenType;
+      const {message} = await this.projectService.storeCopyOfTheCurrentUserWork(payloadData, user);
+      console.log("message", payload)
+    } catch (error) {
+      console.log("error", error)
+    }
+    //return client.broadcast.to(`project-${projectId}`).emit('newWorkSpaceXmlData', data);
   }
 }

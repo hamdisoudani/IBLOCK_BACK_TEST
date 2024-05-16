@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create_project.dto';
 import { Request } from 'express';
@@ -12,6 +12,7 @@ import { RemoveProjectDto } from './dto/remove_project.dto';
 import { StoreUserWorkDto } from './dto/store_user_work.dto';
 import { GetProjectDetailsDto } from './dto/get_project_details.dto';
 import { UpdateProjectDto } from './dto/update_project.dto';
+import { DeleteUnsavedProjectCopyDto } from './dto/delete_unsaved_project_copy.dto';
 
 @UseGuards(RoleGuard)
 @Controller('projects')
@@ -157,6 +158,21 @@ export class ProjectsController {
       return {
         message,
         projectDetails
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  @Roles(Role.STUDENT, Role.TEACHER)
+  @Delete('/copy/delete')
+  async deleteUnsavedProjectCopy(@Body() body: DeleteUnsavedProjectCopyDto, @Req() request: Request) {
+    try {
+      const user = request.user as accessTokenType;
+      const {message} = await this.projectsService.deleteTheCurrentCopyOfTheUserWork(body, user);
+
+      return {
+        message
       };
     } catch (error) {
       throw error;
