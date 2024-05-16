@@ -14,7 +14,7 @@ import { accessTokenType } from 'src/utils/types/access_token.type';
 })
 export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   constructor(private readonly jwtService: JwtService, private readonly projectService: ProjectsService) {}
-  connectedUsers: Map<string, accessTokenType[]> = new Map();
+  connectedUsers: Map<string, Set<accessTokenType>> = new Map();
   @WebSocketServer() server: Server;
   
   async afterInit(@ConnectedSocket() socket: Socket) {
@@ -26,35 +26,53 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     );
   }
 
+
+
   async handleConnection(client: any) {
     const projectId = client.projectID as string; 
     const user = client.user as accessTokenType; // User is set in the middleware
     client.join(`project-${projectId}`); // Join the project's room
     
-    const roomUsers = this.getConnectedUsersInProject(projectId);
-    client.broadcast.to(`project-${projectId}`).emit('user_joined', user);  // Notify everyone in the project
+    if(!this.connectedUsers.has(projectId)) {
+      this.connectedUsers.set(projectId, new Set());
+    }
+    this.connectedUsers.get(projectId).add(user); // Add the user to the project's connected users
+    const connectedUsers = Array.from(this.connectedUsers.get(projectId) || []);
+    client.broadcast.to(`project-${projectId}`).emit('user_joined', {
+      user,
+      connectedUsers: connectedUsers
+    
+    });  // Notify everyone in the project
   }
 
   async handleDisconnect(client: any) {
     const projectId = client.projectID as string; 
     const user = client.user as accessTokenType; // User is set in the middleware
-    // Find which rooms the socket belonged to (likely just one)
-    const rooms = Array.from(client.rooms);
-    // Find the room and unsubscribe the user
-
-    const roomUsers = this.getConnectedUsersInProject(projectId);
-    client.broadcast.to(`project-${projectId}`).emit('user_left', user); 
+    if (this.connectedUsers.has(projectId)) {
+      this.connectedUsers.get(projectId).delete(user);
+    }
+  
+    const updatedUsers = Array.from(this.connectedUsers.get(projectId) || []);
+    client.broadcast.to(`project-${projectId}`).emit('user_left', {
+      user,
+      connectedUsers: updatedUsers
+    
+    }); 
   }
 
-  getConnectedUsersInProject(projectId: string): accessTokenType[] {
+  getConnectedUsersInProject(projectId: string) {
       return this.connectedUsers.get(projectId) || [];
   }
 
-
-  @SubscribeMessage('message')
-  handleMessage(client: any, payload: any): { "Hello": any } {
-    console.log("client", client.user)
-    return {"Hello": "data"};
+  @SubscribeMessage('get_connected_users')
+  handleGetConnectedUsers(client: any, payload: any): Observable<WsResponse<any>> | any {
+    const projectId = client.projectID as string;
+    const data = {
+      payload,
+      user: client.user as accessTokenType
+    }
+    const updatedUsers = Array.from(this.connectedUsers.get(projectId) || []);
+    client.emit('connected_users', {connectedUsers: updatedUsers});
   }
 
   @SubscribeMessage('cursor_updates')
