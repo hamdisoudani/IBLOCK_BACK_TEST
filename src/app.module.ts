@@ -20,6 +20,7 @@ import { RobotSocketEventsModule } from './robot_socket_events/robot_socket_even
 import { DeviceTypesModule } from './devices_and_blocks/device_types/device_types.module';
 import { DeviceModule } from './devices_and_blocks/device/device.module';
 import { BlocksModule } from './devices_and_blocks/blocks/blocks.module';
+import { MetaProjectsModule } from './meta_projects/meta_projects.module';
 
 
 @Module({
@@ -46,7 +47,8 @@ import { BlocksModule } from './devices_and_blocks/blocks/blocks.module';
     EventsModule,
     RobotSocketEventsModule,
     DeviceTypesModule,
-    DeviceModule
+    DeviceModule,
+    MetaProjectsModule
   ],
   controllers: [AppController],
   providers: [

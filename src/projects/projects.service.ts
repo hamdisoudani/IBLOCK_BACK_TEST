@@ -14,6 +14,8 @@ import { CUSTOM_INVITATION_CODE_ALPHABET } from 'src/utils/constant/security.con
 import { UpdateProjectDto } from './dto/update_project.dto';
 import { StoreCopyOfProjectDto } from './dto/store_copy_of_project_data.dto';
 import { DeleteUnsavedProjectCopyDto } from './dto/delete_unsaved_project_copy.dto';
+import { MetaProjectCodesDocument } from 'src/meta_projects/schema/meta_project_codes.schema';
+import { MetaProjectDocument } from 'src/meta_projects/schema/meta_project.schema';
 
 @Injectable()
 export class ProjectsService {
@@ -112,6 +114,9 @@ export class ProjectsService {
             if(project.projectType == ProjectType.PERSONAL && selectedProfile.type == ProfileType.SCHOOL) throw new BadRequestException("You're not authorized to join this project");
             if(project.projectType == ProjectType.TEAM && selectedProfile.type == ProfileType.PERSONAL) throw new BadRequestException("You're not authorized to join this project");
 
+            // check if the project is meta project then inform the student to join the project from the meta project interface
+            if(project.projectType == ProjectType.META_PROJECT) throw new BadRequestException("This project is a meta project, you need to join it from the meta project interface");
+
             // Check if the user is already a member of this project
             if(project.members.includes(new Types.ObjectId(user.userId))) throw new BadRequestException("You're already a member of this project");
 
@@ -144,6 +149,8 @@ export class ProjectsService {
             if(project.projectType == ProjectType.PERSONAL && selectedProfile.type == ProfileType.SCHOOL) throw new BadRequestException("You're not authorized to leave this project");
             if(project.projectType == ProjectType.TEAM && selectedProfile.type == ProfileType.PERSONAL) throw new BadRequestException("You're not authorized to leave this project");
 
+            // check if the project is meta project then inform the student to leave the project from the meta project interface
+            if(project.projectType == ProjectType.META_PROJECT) throw new BadRequestException("This project is a meta project, you need to leave it from the meta project interface");
             // Check if the user is a member of this project
             if(!project.members.includes(new Types.ObjectId(user.userId))) throw new BadRequestException("You're not a member of this project");
 
@@ -175,11 +182,12 @@ export class ProjectsService {
             }
             if(selectedProfile.type == ProfileType.PERSONAL) {
                 // Get joined projects
-                const joinedProjects = await this.projectModel.find({ members: new Types.ObjectId(user.userId) }).select(projection).populate({ path: 'members', select: { "_id": 1, "name": 1, "email": 1, "role": 1 }});
+                const joinedProjects = await this.projectModel.find({ members: new Types.ObjectId(user.userId), projectType: ProjectType.PERSONAL }).select(projection).populate({ path: 'members', select: { "_id": 1, "name": 1, "email": 1, "role": 1 }});
                 
                 // Get owned projects
-                const ownedProjects = await this.projectModel.find({ projectOwner: new Types.ObjectId(user.userId) }).select(projection).populate({ path: 'members', select: { "_id": 1, "name": 1, "email": 1, "role": 1 }});
+                const ownedProjects = await this.projectModel.find({ projectOwner: new Types.ObjectId(user.userId), projectType: ProjectType.PERSONAL }).select(projection).populate({ path: 'members', select: { "_id": 1, "name": 1, "email": 1, "role": 1 }});
                 
+                joinedProjects.filter(project => !project.projectOwner.equals(new Types.ObjectId(user.userId)));
                 return {
                     ownedProjects,
                     joinedProjects
@@ -191,6 +199,11 @@ export class ProjectsService {
             // Get owned projects
             const ownedProjects = await this.projectModel.find({ schoolId: selectedProfile.school, projectOwner: new Types.ObjectId(user.userId) }).select(projection).populate({ path: 'members', select: { "_id": 1, "name": 1, "email": 1, "role": 1 }});
 
+            joinedProjects.filter(project => !project.projectOwner.equals(new Types.ObjectId(user.userId)));
+
+            // Remove all projects with type meta project
+            joinedProjects.filter(project => project.projectType != ProjectType.META_PROJECT);
+            ownedProjects.filter(project => project.projectType != ProjectType.META_PROJECT);
             return {
                 ownedProjects,
                 joinedProjects
@@ -563,6 +576,90 @@ export class ProjectsService {
                 throw error;
             }
             throw new InternalServerErrorException(error);
+        }
+    }
+
+    async checkIfUserAlreadyHaveProjectUnderMetaProjectID(metaProjectId: string, user: accessTokenType): Promise<boolean> {
+        try {
+            const project = await this.projectModel.findOne({ metaProjectId: new Types.ObjectId(metaProjectId)});
+            if(!project) throw new BadRequestException("Project not found");
+
+            if(project.projectOwner.equals(new Types.ObjectId(user.userId))) return true;
+            return false;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async createNonCollaborativeProjectUnderMetaProject(body: CreateProjectDto, user: accessTokenType, metaProjectId: string): Promise<ProjectDocument> {
+        try {
+            const newProject = new this.projectModel({
+                projectName: body.name,
+                projectDescription: body.description || "",
+                projectType: ProjectType.META_PROJECT,
+                projectOwner: new Types.ObjectId(user.userId),
+                invitationCode: this.generateInvitationCode(),
+                metaProjectID: new Types.ObjectId(metaProjectId),
+                members: [new Types.ObjectId(user.userId)],
+                collaborative: false
+            });
+            await newProject.save();
+            return newProject;
+        } catch (error) {
+            throw new InternalServerErrorException("An error occurred while creating the project");
+        }
+    }
+
+    async createCollaborativeProjectUnderMetaProject(user: accessTokenType, metaProject: MetaProjectDocument, metaProjectCodeDocument: MetaProjectCodesDocument): Promise<{message: string, project: ProjectDocument}> {
+        try {
+            // check if this project already exists with the meta project invitation code
+            const isProjectExists = await this.projectModel.exists({ invitationCode: metaProjectCodeDocument.code});
+
+            // If the project already exists then check if the user is a member of the project
+            if(isProjectExists) {
+                const project = await this.projectModel.findOne({ invitationCode: metaProjectCodeDocument.code });
+
+
+                // Further check for security reasons, if the invitation code already exists in the project collection and the project type is not META_PROJECT
+                if(project.projectType != ProjectType.META_PROJECT) throw new BadRequestException("An error occurred while creating the project, please try again later or ask your teacher to change the invitation code");
+
+                if(project.members.includes(new Types.ObjectId(user.userId))) throw new BadRequestException("You're already a member of this project");
+
+                // If he is not a memeber then add him to the project after the check of the maximum number of members allowed in the meta project invitation code
+                if(project.members.length >= metaProjectCodeDocument.maxUsers) throw new BadRequestException("The maximum number of members allowed in this project has been reached");
+
+                // Add the user to the project
+                project.members.push(new Types.ObjectId(user.userId));
+                await project.save();
+                return { message: "You've joined the project successfully", project };
+            }
+            
+            const newProject = new this.projectModel({
+                projectName: metaProjectCodeDocument.childProjectName,
+                projectDescription: metaProjectCodeDocument.childProjectDescription || "",
+                projectType: ProjectType.META_PROJECT,
+                projectOwner: new Types.ObjectId(user.userId),
+                invitationCode: metaProjectCodeDocument.code,
+                metaProjectID: metaProject._id,
+                collaborative: true,
+                members: [new Types.ObjectId(user.userId)]
+            });
+            await newProject.save();
+            return { message: "You've joined the project successfully", project: newProject };
+        } catch (error) {
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                throw error;
+            }
+            throw new InternalServerErrorException("An error occurred while creating the project");
+        }
+    }
+
+    async getAllProjectsUnderMetaProject(metaProjectId: string, user: accessTokenType): Promise<ProjectDocument[]> {    
+        try {
+            const projects = await this.projectModel.find({ metaProjectID: new Types.ObjectId(metaProjectId), members: new Types.ObjectId(user.userId)});
+            return projects;
+        } catch (error) {
+            throw new InternalServerErrorException("An error occurred while fetching the projects");
         }
     }
 }
