@@ -16,6 +16,7 @@ import { StoreCopyOfProjectDto } from './dto/store_copy_of_project_data.dto';
 import { DeleteUnsavedProjectCopyDto } from './dto/delete_unsaved_project_copy.dto';
 import { MetaProjectCodesDocument } from 'src/meta_projects/schema/meta_project_codes.schema';
 import { MetaProjectDocument } from 'src/meta_projects/schema/meta_project.schema';
+import { getAllChildProjectsForStudent } from 'src/meta_projects/pipelines/get_all_child_projects_for_student';
 
 @Injectable()
 export class ProjectsService {
@@ -591,17 +592,19 @@ export class ProjectsService {
         }
     }
 
-    async createNonCollaborativeProjectUnderMetaProject(body: CreateProjectDto, user: accessTokenType, metaProjectId: string): Promise<ProjectDocument> {
+    async createNonCollaborativeProjectUnderMetaProject(body: CreateProjectDto, user: accessTokenType, metaProject: MetaProjectDocument): Promise<ProjectDocument> {
         try {
+            const { selectedProfile } = await this.profileService.getUserProfiles(user);
             const newProject = new this.projectModel({
                 projectName: body.name,
                 projectDescription: body.description || "",
                 projectType: ProjectType.META_PROJECT,
-                projectOwner: new Types.ObjectId(user.userId),
+                projectOwner: new Types.ObjectId(metaProject.createdBy),
                 invitationCode: this.generateInvitationCode(),
-                metaProjectID: new Types.ObjectId(metaProjectId),
+                metaProjectID: metaProject._id,
                 members: [new Types.ObjectId(user.userId)],
-                collaborative: false
+                collaborative: false,
+                schoolId: selectedProfile.school
             });
             await newProject.save();
             return newProject;
@@ -612,6 +615,7 @@ export class ProjectsService {
 
     async createCollaborativeProjectUnderMetaProject(user: accessTokenType, metaProject: MetaProjectDocument, metaProjectCodeDocument: MetaProjectCodesDocument): Promise<{message: string, project: ProjectDocument}> {
         try {
+            const { selectedProfile } = await this.profileService.getUserProfiles(user);
             // check if this project already exists with the meta project invitation code
             const isProjectExists = await this.projectModel.exists({ invitationCode: metaProjectCodeDocument.code});
 
@@ -638,11 +642,12 @@ export class ProjectsService {
                 projectName: metaProjectCodeDocument.childProjectName,
                 projectDescription: metaProjectCodeDocument.childProjectDescription || "",
                 projectType: ProjectType.META_PROJECT,
-                projectOwner: new Types.ObjectId(user.userId),
+                projectOwner: new Types.ObjectId(metaProject.createdBy),
                 invitationCode: metaProjectCodeDocument.code,
                 metaProjectID: metaProject._id,
                 collaborative: true,
-                members: [new Types.ObjectId(user.userId)]
+                members: [new Types.ObjectId(user.userId)],
+                schoolId: selectedProfile.school
             });
             await newProject.save();
             return { message: "You've joined the project successfully", project: newProject };
@@ -660,6 +665,51 @@ export class ProjectsService {
             return projects;
         } catch (error) {
             throw new InternalServerErrorException("An error occurred while fetching the projects");
+        }
+    }
+
+    async getAllJoinedChildMetaProjectsUnderSchool(user: accessTokenType): Promise<ProjectDocument[]> {
+        try {
+            const { selectedProfile } = await this.profileService.getUserProfiles(user);
+           // const projects = await this.projectModel.find({ schoolId: selectedProfile.school, members: new Types.ObjectId(user.userId), projectType: ProjectType.META_PROJECT });
+            const projects = await this.projectModel.aggregate(getAllChildProjectsForStudent(new Types.ObjectId(user.userId),selectedProfile.school));
+            return projects;
+        } catch (error) {
+            throw new InternalServerErrorException("An error occurred while fetching the projects");
+        }
+    }
+
+    async deleteAllProjectsUnderMetaProject(metaProjectId: string): Promise<{ message: string }> {
+        try {
+            // Get all projects under the meta project
+            const projects = await this.projectModel.find({ metaProjectID: new Types.ObjectId(metaProjectId) });
+            if(projects.length == 0) return { message: "There is no projects under the meta project" };
+            // Delete every project work history for each project
+            for(const project of projects) {
+                await this.ProjectWorkHistoryModel.deleteMany({ projectId: project._id });
+            }
+            // Delete all projects
+            await this.projectModel.deleteMany({ metaProjectID: new Types.ObjectId(metaProjectId) });
+            return { message: "All projects under the meta project has been removed successfully" };
+        } catch (error) {
+            throw new InternalServerErrorException("An error occurred while deleting the projects");
+        }
+    }
+
+    async deleteAllProjectsUnderCollaborativeCode(collaborativeCode: string): Promise<{ message: string }> {
+        try {
+            // Get all projects under the meta project
+            const projects = await this.projectModel.find({ invitationCode: collaborativeCode });
+            if(projects.length == 0) return { message: "There is no projects under the collaborative code" };
+            // Delete every project work history for each project
+            for(const project of projects) {
+                await this.ProjectWorkHistoryModel.deleteMany({ projectId: project._id });
+            }
+            // Delete all projects
+            await this.projectModel.deleteMany({ invitationCode: collaborativeCode });
+            return { message: "All projects under the collaborative code has been removed successfully" };
+        } catch (error) {
+            throw new InternalServerErrorException("An error occurred while deleting the projects");
         }
     }
 }

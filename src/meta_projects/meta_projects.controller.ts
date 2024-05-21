@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { MetaProjectsService } from './meta_projects.service';
 import { Roles } from 'src/utils/decorator/middleware.decorator';
 import { Role } from 'src/users/schemas/users.schema';
@@ -9,8 +9,10 @@ import { JoinCollaborativeMpDto } from './dto/join_collaborative_mp.dto';
 import { GetMpInformationsDto } from './dto/get_mp_informations.dto';
 import { JoinCollaborativeMpChildProjectDto } from './dto/join_collaborative_mp_child_project.dto';
 import { AddNewCodeToMpDto } from './dto/add_new_code_to_mp.dto';
+import { RoleGuard } from 'src/middleware/role.guard';
 
 // mp => meta project
+@UseGuards(RoleGuard)
 @Controller('mp')
 export class MetaProjectsController {
   constructor(private readonly metaProjectsService: MetaProjectsService) {}
@@ -42,6 +44,18 @@ export class MetaProjectsController {
   }
 
   @Roles(Role.STUDENT)
+  @Get('joined-projects')
+  async getJoinedProjects(@Req() request: Request) {
+    try {
+      const user = request.user as accessTokenType;
+      const response = await this.metaProjectsService.getAllJoinedChildProjectsForStudent(user);
+      return response;
+    } catch (error) {
+      throw error
+    }
+  }
+
+  @Roles(Role.STUDENT)
   @Post('join/')
   async joinMetaProject(@Body() body: JoinCollaborativeMpDto, @Req() request: Request) {
     try {
@@ -66,19 +80,46 @@ export class MetaProjectsController {
       throw error;
     }
   }
-
-  @Roles(Role.STUDENT)
-  @Post('join/child-project')
-  async joinCollaborativeMpChildProject(@Body() body: JoinCollaborativeMpChildProjectDto, @Req() request: Request) {
+  
+  @Roles(Role.TEACHER)
+  @Delete(':metaProjectID')
+  async deleteMetaProject(@Param() params: GetMpInformationsDto, @Req() request: Request) {
     try {
       const user = request.user as accessTokenType;
-      const response = await this.metaProjectsService.joinCollaborativeMetaProjectChildProjectWithInvitationCode(body, user);
+      const response = await this.metaProjectsService.deleteMetaProject(params.metaProjectID, user);
 
       return response;
     } catch (error) {
       throw error;
     }
   }
+
+  @Roles(Role.TEACHER)
+  @Delete('/collaborative-code/:code')
+  async deleteCollaborativeCode(@Param('code') code: string, @Req() request: Request) {
+    try {
+      const user = request.user as accessTokenType;
+      const response = await this.metaProjectsService.deleteCollaborativeCode(code, user);
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Replaced in the join function to avoid code duplication
+  /*@Roles(Role.STUDENT)
+  @Post('join/child-project')
+  async joinCollaborativeMpChildProject(@Body() body: JoinCollaborativeMpChildProjectDto, @Req() request: Request) {
+    try {
+      const user = request.user as accessTokenType;
+      //const response = await this.metaProjectsService.joinCollaborativeMetaProjectChildProjectWithInvitationCode(body, user);
+      const response = await this.metaProjectsService.joinCollaborativeMetaProjectChildProject(body, user);
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }*/
 
   @Roles(Role.TEACHER)
   @Post('add-collaborative-code')
@@ -92,4 +133,6 @@ export class MetaProjectsController {
       throw error;
     }
   }
+
+  
 }

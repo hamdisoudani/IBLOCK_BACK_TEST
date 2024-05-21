@@ -79,11 +79,11 @@ export class MetaProjectsService {
         return nanoid();
     }
 
-    private async createMetaProjectCode(body: AddNewCodeToMpDto): Promise<MetaProjectCodesDocument> {
+    private async createMetaProjectCode(body: AddNewCodeToMpDto, metaProject: MetaProjectDocument): Promise<MetaProjectCodesDocument> {
         try {
 
             // Check if there is no project with the same name
-            const projectFound = await this.metaProjectCodesModel.exists({ childProjectName: body.childProjectName });
+            const projectFound = await this.metaProjectCodesModel.exists({ childProjectName: body.childProjectName, metaProjectID: metaProject._id });
             if(projectFound) throw new BadRequestException('A project with this name already exists');
 
             let code = this.generateInvitationCode();
@@ -163,7 +163,45 @@ export class MetaProjectsService {
             //     newProject.projectCodes.push(code._id);
             // }
             await newProject.save();
-            return { message: 'Project created successfully', metaProject: newProject };
+            const pipeline = [
+                {
+                    $match: {
+                        _id: newProject._id
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'members',
+                        foreignField: '_id',
+                        as: 'members',
+                        pipeline: [
+                            {
+                                $project: {
+                                    _id: 1,
+                                    name: 1,
+                                    email: 1,
+                                    role: 1
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    $project: {
+                        _id: 1,
+                        projectName: 1,
+                        projectDescription: 1,
+                        members: 1,
+                        numberOfCollaborativeInvitationCodes: { $cond: { if: { $isArray: "$projectCodes" }, then: { $size: "$projectCodes" }, else: "0"} },
+                        collaborative: { $cond: { if: { $eq: ["$collaborative", true] }, then: "Yes", else: "No"} },
+                        invitationCode: 1,
+                        createdAt: 1
+                    }
+                }
+            ]
+            const projectData = await this.metaProjectModel.aggregate(pipeline);
+            return { message: 'Project created successfully', metaProject: projectData[0] };
         } catch (error) {
             if(error instanceof UnauthorizedException || error instanceof BadRequestException) throw error;
             throw new InternalServerErrorException('An error occurred while creating the project');
@@ -186,7 +224,7 @@ export class MetaProjectsService {
             if(project.projectCodes.length >= 5) throw new BadRequestException('This project has reached the maximum number of codes');
 
             // create the code
-            const code = await this.createMetaProjectCode(body);
+            const code = await this.createMetaProjectCode(body, project);
             project.projectCodes.push(code._id);
             await project.save();
             return { message: 'Code created successfully', code };
@@ -206,7 +244,7 @@ export class MetaProjectsService {
                 name: `${metaProject.projectName} - ${user.name}`,
                 description: ""
             }
-            const project = await this.projectService.createNonCollaborativeProjectUnderMetaProject(createProjectPayload, user, metaProject._id.toString());
+            const project = await this.projectService.createNonCollaborativeProjectUnderMetaProject(createProjectPayload, user, metaProject);
 
             // add the student to the meta project as a member after creating the project
             if(!metaProject.members.includes(new Types.ObjectId(user.userId))) {
@@ -239,28 +277,43 @@ export class MetaProjectsService {
 
     async join(body: JoinCollaborativeMpDto, user: accessTokenType): Promise<{message: string, createdProject?: Project}> {
         try {
-            
-             // Check if the project exists
-             const metaProject = (await this.metaProjectModel.findOne({ invitationCode: body.invitationCode }));
-             if(!metaProject) throw new BadRequestException("The project does not exist");
-
-
-            // check if the user is a student
-            if(user.role !== Role.STUDENT) throw new UnauthorizedException('Only students can join this project');
-
             // check if the student profile is a school profile
             const { selectedProfile } = await this.profileService.getUserProfiles(user);
             if(selectedProfile.type !== 'school') throw new UnauthorizedException('You are not authorized to join this project using your current profile');
 
-            // check if the school profile is the same as the project school profile
-            if(!metaProject.schoolId.equals(selectedProfile.school)) throw new UnauthorizedException('You are not authorized to join this project using your current profile');
 
-            // check if the project is collaborative or not
-            if(metaProject.collaborative) {
-                return await this.joinCollaborativeMetaProject(user, metaProject);
-            } else {
+            //  check if the invitation code belongs to a non collaborative meta project
+            const metaProject = await this.metaProjectModel.findOne({ invitationCode: body.invitationCode });
+           if(metaProject) {
+            // If the metaproject is not collaborative
+            if(!metaProject.collaborative) {
+                // check if the user is a student
+                if(user.role !== Role.STUDENT) throw new UnauthorizedException('Only students can join this project');
+
                 return await this.joinNonCollaborativeMetaProject(user, metaProject);
+            } else {
+                throw new BadRequestException('This project is collaborative, you cannot join it using this code');
             }
+
+           }
+            
+        //    check if the invitation code belongs to a collaborative meta project from the table meta_project_codes
+        const code = await this.metaProjectCodesModel.findOne({ code: body.invitationCode });
+        if(!code) throw new BadRequestException('The invitation code does not exist');
+
+        // check if the meta project exists
+        const metaProjectFromCollaborativeCode = await this.metaProjectModel.findById(new Types.ObjectId(code.metaProjectID));
+        if(!metaProjectFromCollaborativeCode) throw new BadRequestException('The project does not exist');
+
+        // Join the project if no problem
+        const response = await this.joinCollaborativeMetaProjectChildProject({invitationCode: body.invitationCode}, user);
+        
+        // add the student to the meta project as a member after joining the project
+        if(!metaProjectFromCollaborativeCode.members.includes(new Types.ObjectId(user.userId))) {
+            metaProjectFromCollaborativeCode.members.push(new Types.ObjectId(user.userId));
+            await metaProjectFromCollaborativeCode.save();
+        }
+        return response;
         } catch (error) {
             if(error instanceof UnauthorizedException || error instanceof BadRequestException) throw error;
             throw new InternalServerErrorException('An error occurred while joining the project');
@@ -306,7 +359,7 @@ export class MetaProjectsService {
         }
     }
 
-    async joinCollaborativeMetaProjectChildProjectWithInvitationCode(body:JoinCollaborativeMpChildProjectDto, user: accessTokenType): Promise<{message: string, project: ProjectDocument}> {
+    /*async joinCollaborativeMetaProjectChildProjectWithInvitationCode(body:JoinCollaborativeMpChildProjectDto, user: accessTokenType): Promise<{message: string, project: ProjectDocument}> {
         try {
             // check if the student profile is a school profile and matches the project school profile
             const { selectedProfile } = await this.profileService.getUserProfiles(user);
@@ -347,7 +400,7 @@ export class MetaProjectsService {
             if(error instanceof UnauthorizedException || error instanceof BadRequestException) throw error;
             throw new InternalServerErrorException('An error occurred while joining the project');
         }
-    }
+    }*/
 
     async getAllMetaProjectsRelatedToCurrentUserSchoolProfile(user: accessTokenType): Promise<{joinedMetaProjects?: MetaProject[], ownedMetaProjects?: MetaProject[]}> {
         try {
@@ -363,6 +416,118 @@ export class MetaProjectsService {
             
             const joinedMetaProjects = await this.metaProjectModel.aggregate(getAllJoinedMetaProjectsByStudent(user.userId, selectedProfile.school));
             return { joinedMetaProjects };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
+    /**
+     * This function will be used in case a student wants to join a project under a meta project
+     * The student will provide the invitation code (collaborative codes) received from the teacher
+     * 1st case => The student is already a member of the meta project means he already joined a project then forbid him from joining the new project
+     * 2nd case => The student is not a member of the meta project, then create a new project under the meta project and add the student to the project
+     */
+    private async joinCollaborativeMetaProjectChildProject(body: JoinCollaborativeMpChildProjectDto, user: accessTokenType): Promise<{message: string, project?: ProjectDocument}> {
+        try {
+            // check if the student profile is a school profile
+            const { selectedProfile } = await this.profileService.getUserProfiles(user);
+            if(selectedProfile.type !== 'school') throw new UnauthorizedException('You are not authorized to join this project using your current profile');
+
+            // Check first if the collaborative invitation code exists
+            const code = await this.metaProjectCodesModel.findOne({ code: body.invitationCode });
+            if(!code) throw new BadRequestException('The invitation code does not exist');
+
+            // check if the meta project exists using the metaproject id on the collaborative code
+            const metaProject = await this.metaProjectModel.findById(new Types.ObjectId(code.metaProjectID));
+            if(!metaProject) throw new BadRequestException('This invitation code is not valid or the project does not exist');
+
+            // check if the school profile is the same as the project school profile
+            if(!metaProject.schoolId.equals(selectedProfile.school)) throw new UnauthorizedException('You are not authorized to join this project using your current profile');
+
+            // check if the student is a member of the meta project means he already joined a project under the meta project
+            if(metaProject.members.includes(new Types.ObjectId(user.userId))) throw new BadRequestException('You cannot join this project because you have already joined a project under this meta project. If you think it\'s an error please contact our support team.');
+
+            // check if the user is a student
+            if(user.role !== Role.STUDENT) throw new UnauthorizedException('Only students can join this project');
+
+
+            // check if the number of members in the code is less than the maximum number of users
+            if(code.members.length >= code.maxUsers) throw new BadRequestException('The maximum number of users has been reached please ask your teacher to generate a new code');
+
+            // use the ProjectService to create a new project under the meta project
+            const {message, project} = await this.projectService.createCollaborativeProjectUnderMetaProject(user, metaProject, code)
+
+            code.members.push(new Types.ObjectId(user.userId));
+            metaProject.members.push(new Types.ObjectId(user.userId));
+            await code.save();
+
+            return { message, project };
+        } catch (error) {
+            if(error instanceof UnauthorizedException || error instanceof BadRequestException) throw error;
+            throw new InternalServerErrorException('An error occurred while joining the project');
+        }
+    }
+
+    async getAllJoinedChildProjectsForStudent(user: accessTokenType): Promise<ProjectDocument[]> {
+        try {
+            // check if the student profile is a school profile
+            const { selectedProfile } = await this.profileService.getUserProfiles(user);
+            if(selectedProfile.type !== 'school') throw new UnauthorizedException('You are not authorized to view this project using your current profile');
+
+            // get all the projects under the meta projects
+            const projects = await this.projectService.getAllJoinedChildMetaProjectsUnderSchool(user);
+            return projects;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async deleteMetaProject(projectId: string, user: accessTokenType): Promise<{message: string}> {
+        try {
+            // check if the user has permission to delete the project
+            const hasAccess = await this.checkPermissionToEditProject(projectId, user);
+            if(!hasAccess) throw new UnauthorizedException('You do not have permission to delete this project');
+
+            // check if the project exists
+            const project = await this.metaProjectModel.findById(projectId);
+            if(!project) throw new BadRequestException('The project does not exist');
+
+            // Delete any project that is under the meta project    
+            await this.projectService.deleteAllProjectsUnderMetaProject(projectId);
+
+            // Delete any collaborative codes that are under the meta project
+            await this.metaProjectCodesModel.deleteMany({ metaProjectID: new Types.ObjectId(projectId) });
+
+            // delete the project
+            await project.delete();
+            return { message: 'Project deleted successfully' };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async deleteCollaborativeCode(codeId: string, user: accessTokenType): Promise<{message: string}> {
+        try {
+            // check if the user has permission to delete the code
+            const code = await this.metaProjectCodesModel.findById(codeId);
+            if(!code) throw new BadRequestException('The code does not exist');
+
+            // check if the user has permission to delete the code
+            const metaProject = await this.metaProjectModel.findById(code.metaProjectID);
+            if(!metaProject) throw new BadRequestException('The project does not exist');
+
+            const hasAccess = await this.checkPermissionToEditProject(metaProject._id.toString(), user);
+            if(!hasAccess) throw new UnauthorizedException('You do not have permission to delete this code');
+
+            // check if the user is the owner of that meta project
+            if(!metaProject.createdBy.equals(new Types.ObjectId(user.userId))) throw new UnauthorizedException('You do not have permission to delete this code');
+
+            // Delete every project that is under this collaborative code
+            await this.projectService.deleteAllProjectsUnderCollaborativeCode(code.code);
+            // delete the code
+            await code.delete();
+            return { message: 'Code deleted successfully' };
         } catch (error) {
             throw error;
         }

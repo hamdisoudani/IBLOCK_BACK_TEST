@@ -15,8 +15,8 @@ export class MetaProject {
     @Prop({ required: true, type: Boolean})
     collaborative: boolean;
 
-    @Prop({ required: true, type: String, unique: true})
-    invitationCode: string;
+    @Prop({ required: false, type: String, unique: true})
+    invitationCode?: string;
 
     @Prop({ required: false, ref: 'users'})
     members?: Types.ObjectId[];

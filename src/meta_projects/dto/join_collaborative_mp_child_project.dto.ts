@@ -6,7 +6,7 @@ export class JoinCollaborativeMpChildProjectDto {
     @MinLength(8, { message: 'The invitation code must be 8 characters long'})
     invitationCode: string;
 
-    @IsMongoId({ message: 'Please provide a valid meta project ID'})
-    @IsNotEmpty({ message: 'Please provide a valid meta project ID'})
-    metaProjectID: string;
+    // @IsMongoId({ message: 'Please provide a valid meta project ID'})
+    // @IsNotEmpty({ message: 'Please provide a valid meta project ID'})
+    // metaProjectID: string;
 }
