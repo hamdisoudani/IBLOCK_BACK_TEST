@@ -127,7 +127,15 @@ export const getGeneralInformationsForMpPipeline = (mpID: string) => {
                 from: 'users',
                 localField: 'createdBy',
                 foreignField: '_id',
-                as: 'owner'
+                as: 'createdBy',
+                pipeline: [{
+                    $project: {
+                        _id: 1,
+                        name: 1,
+                        role: 1,
+                        email: 1
+                    }
+                }]
             }
         },
         {
@@ -135,30 +143,27 @@ export const getGeneralInformationsForMpPipeline = (mpID: string) => {
                 from: 'users',
                 localField: 'members',
                 foreignField: '_id',
-                as: 'members'
+                as: 'members',
+                pipeline: [{
+                    $project: {
+                        _id: 1,
+                        name: 1,
+                        role: 1,
+                        email: 1
+                    }
+                }]
             }
         },
-        { $unwind: '$owner' },
+        { $unwind: '$createdBy' },
         {
             $project: {
                 _id: 1,
                 projectName: 1,
                 projectDescription: 1,
-                owner: {
-                    _id: 1,
-                    firstName: 1,
-                    lastName: 1,
-                    email: 1,
-                    role: 1
-                },
-                members: {
-                    _id: 1,
-                    firstName: 1,
-                    lastName: 1,
-                    email: 1,
-                    role: 1
-                },
-                collaborative: 1,
+                createdBy: 1,
+                members: 1,
+                collaborative: { $cond: { if: { $eq: ["$collaborative", true] }, then: "Yes", else: "No"}   },
+                createdAt: 1
             }
         }
     ];
