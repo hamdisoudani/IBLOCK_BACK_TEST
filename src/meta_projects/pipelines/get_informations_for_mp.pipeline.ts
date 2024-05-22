@@ -82,6 +82,7 @@ export const getAllInformationsForMpPipeline = (mpID: string) => {
                         }]
                     }
                 },
+                {$unwind: '$projectDetails'},
                 {
                     $project: {
                         _id: 1,
