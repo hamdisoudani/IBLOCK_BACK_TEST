@@ -94,7 +94,6 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
       payload,
       user: client.user as accessTokenType
     }
-    console.log("payload", payload)
     return client.broadcast.to(`project-${projectId}`).emit('newBlockByUser', data);
   }
 
@@ -168,8 +167,8 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
         projectId
       };
       const user = client.user as accessTokenType;
-      const {message} = await this.projectService.storeCopyOfTheCurrentUserWork(payloadData, user);
-      console.log("message", payload)
+      await this.projectService.storeCopyOfTheCurrentUserWork(payloadData, user);
+      return client.broadcast.to(`project-${projectId}`).emit('newStudentWorkspaceData', payloadData);
     } catch (error) {
       console.log("error", error)
     }

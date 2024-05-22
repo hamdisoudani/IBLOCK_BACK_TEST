@@ -712,4 +712,13 @@ export class ProjectsService {
             throw new InternalServerErrorException("An error occurred while deleting the projects");
         }
     }
+
+    async getAllProjectsUnderMetaProjectForTeacher(metaProjectId: string): Promise<ProjectDocument[]> {
+        try {
+            const projects = await this.projectModel.find({ metaProjectID: new Types.ObjectId(metaProjectId) });
+            return projects;
+        } catch (error) {
+            throw new InternalServerErrorException("An error occurred while fetching the projects");
+        }
+    }
 }

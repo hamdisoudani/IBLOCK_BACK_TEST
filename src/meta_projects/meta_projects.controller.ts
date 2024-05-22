@@ -10,6 +10,7 @@ import { GetMpInformationsDto } from './dto/get_mp_informations.dto';
 import { JoinCollaborativeMpChildProjectDto } from './dto/join_collaborative_mp_child_project.dto';
 import { AddNewCodeToMpDto } from './dto/add_new_code_to_mp.dto';
 import { RoleGuard } from 'src/middleware/role.guard';
+import { GetAllChildProjectUnderMpDto } from './dto/get_all_child_project_under_mp.dto';
 
 // mp => meta project
 @UseGuards(RoleGuard)
@@ -101,6 +102,18 @@ export class MetaProjectsController {
       const user = request.user as accessTokenType;
       const response = await this.metaProjectsService.deleteCollaborativeCode(code, user);
 
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  @Roles(Role.TEACHER)
+  @Get(':metaProjectID/child-projects')
+  async getChildProjects(@Param() params: GetAllChildProjectUnderMpDto, @Req() request: Request) {
+    try {
+      const user = request.user as accessTokenType;
+      const response = await this.metaProjectsService.getAllProjectsListedUnderMetaProject(params, user);
       return response;
     } catch (error) {
       throw error;

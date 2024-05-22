@@ -16,6 +16,7 @@ import { Project, ProjectDocument } from 'src/projects/schemas/project.schema';
 import { getAllInformationsForMpPipeline, getGeneralInformationsForMpPipeline } from './pipelines/get_informations_for_mp.pipeline';
 import { JoinCollaborativeMpChildProjectDto } from './dto/join_collaborative_mp_child_project.dto';
 import { getAllJoinedMetaProjectsByStudent, getAllOwndedMetaProjectsByTeacher } from './pipelines/get_all_mp.pipeline';
+import { GetAllChildProjectUnderMpDto } from './dto/get_all_child_project_under_mp.dto';
 
 @Injectable()
 export class MetaProjectsService {
@@ -530,6 +531,21 @@ export class MetaProjectsService {
             return { message: 'Code deleted successfully' };
         } catch (error) {
             throw error;
+        }
+    }
+
+    async getAllProjectsListedUnderMetaProject(body:GetAllChildProjectUnderMpDto ,user: accessTokenType): Promise<{projects: ProjectDocument[]}> {
+        try {
+            // Check if meta project exists
+            const metaProject = await this.metaProjectModel.findOne({ _id: new Types.ObjectId(body.metaProjectID), createdBy: new Types.ObjectId(user.userId) });
+            if(!metaProject) throw new BadRequestException('The project does not exist');
+
+            // check if the current user is the owner of the meta project
+            const projects = await this.projectService.getAllProjectsUnderMetaProjectForTeacher(body.metaProjectID);
+            return { projects };
+        } catch(e) {
+            if(e instanceof BadRequestException || e instanceof UnauthorizedException) throw e;
+            throw new InternalServerErrorException('An error occurred while fetching the projects');
         }
     }
 }
