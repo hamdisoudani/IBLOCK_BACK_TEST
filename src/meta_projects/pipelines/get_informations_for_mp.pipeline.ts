@@ -52,7 +52,8 @@ export const getAllInformationsForMpPipeline = (mpID: string) => {
                 localField: 'projectCodes',
                 foreignField: '_id',
                 as: 'projectCodes',
-                pipeline: [{
+                pipeline: [
+                    {
                     $lookup: {
                         from: 'users',
                         localField: 'members',
@@ -67,7 +68,21 @@ export const getAllInformationsForMpPipeline = (mpID: string) => {
                             }
                         }]
                     }
-                }, {
+                },
+                {
+                    $lookup: {
+                        from: 'projects',
+                        localField: 'code',
+                        foreignField: 'invitationCode',
+                        as: 'projectDetails',
+                        pipeline: [{
+                            $project: {
+                                _id: 1,
+                            }
+                        }]
+                    }
+                },
+                {
                     $project: {
                         _id: 1,
                         code: 1,
@@ -75,6 +90,7 @@ export const getAllInformationsForMpPipeline = (mpID: string) => {
                         childProjectName: 1,
                         childProjectDescription: 1,
                         createdAt: 1,
+                        projectDetails:1,
                         numberOfMembers: { $size: "$members" }
                     }
                 }]
