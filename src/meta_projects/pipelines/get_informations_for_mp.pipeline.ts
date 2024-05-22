@@ -82,7 +82,10 @@ export const getAllInformationsForMpPipeline = (mpID: string) => {
                         }]
                     }
                 },
-                {$unwind: '$projectDetails'},
+                {$unwind: {
+                    path: '$projectDetails', // Unwind only if a project is found
+                    preserveNullAndEmptyArrays: true, // Preserve structure if no project found
+                }},
                 {
                     $project: {
                         _id: 1,
@@ -91,7 +94,7 @@ export const getAllInformationsForMpPipeline = (mpID: string) => {
                         childProjectName: 1,
                         childProjectDescription: 1,
                         createdAt: 1,
-                        projectDetails:1,
+                        projectDetails: { $ifNull: ['$projectDetails', null] },
                         numberOfMembers: { $size: "$members" }
                     }
                 }]
