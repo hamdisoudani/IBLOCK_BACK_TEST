@@ -36,14 +36,45 @@ export const getAllInformationsForMpPipeline = (mpID: string) => {
                 localField: 'members',
                 foreignField: '_id',
                 as: 'members',
-                pipeline: [{
-                    $project: {
-                        _id: 1,
-                        name: 1,
-                        role: 1,
-                        email: 1
+                pipeline: [
+                    {
+                        // lookup for the projects that the user is a member and get the project name, project description, and the project code
+                        $lookup: {
+                            from: 'projects',
+                            let: { memberId: '$_id' },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $and: [
+                                                { $eq: ['$metaProjectID', new Types.ObjectId(mpID)] },
+                                                { $in: ['$$memberId', '$members'] }
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    $project: {
+                                        _id: 1,
+                                        projectName: 1,
+                                        projectDescription: 1
+                                    }
+                                }
+                            ],
+                            as: 'projects'
+                        }
+                    },
+                    {$unwind: '$projects' },
+                    {
+                        $project: {
+                            _id: 1,
+                            name: 1,
+                            role: 1,
+                            email: 1,
+                            projects: 1
+                        }
                     }
-                }]
+                ]
             }
         },
         {

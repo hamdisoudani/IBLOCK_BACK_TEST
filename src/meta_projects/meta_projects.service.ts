@@ -345,10 +345,13 @@ export class MetaProjectsService {
 
             // if he still don't have access to modify the project but he is a member of the project => it's a student so we will return the project details (General informations)
             if(!hasAccess) {
-                viewAs = 'student';
+                /*viewAs = 'student';
                 const metaProjectDetails = await this.metaProjectModel.aggregate(getGeneralInformationsForMpPipeline(projectId));
                 const getJoinedProjectUnderThisMetaProject = await this.projectService.getAllProjectsUnderMetaProject(projectId, user);
-                return { viewAs, metaProjectDetails: metaProjectDetails[0], joinedProjects: getJoinedProjectUnderThisMetaProject};
+                return { viewAs, metaProjectDetails: metaProjectDetails[0], joinedProjects: getJoinedProjectUnderThisMetaProject};*/
+                
+                // Updated : 2024-05-24 only teacher can see this project Information
+                throw new UnauthorizedException('You are not authorized to view this project');
             }
             
             viewAs = 'owner';

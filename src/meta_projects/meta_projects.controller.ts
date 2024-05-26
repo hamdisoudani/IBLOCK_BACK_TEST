@@ -69,7 +69,7 @@ export class MetaProjectsController {
     }
   }
 
-  @Roles(Role.STUDENT, Role.TEACHER)
+  @Roles(Role.TEACHER) // updated: remove Role.STUDENT
   @Get(':metaProjectID')
   async getMetaProject(@Param() params: GetMpInformationsDto, @Req() request: Request) {
     try {
