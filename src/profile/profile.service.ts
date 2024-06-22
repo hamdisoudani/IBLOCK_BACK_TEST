@@ -1,5 +1,5 @@
 import { JwtService } from '@nestjs/jwt';
-import { BadRequestException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, forwardRef, HttpException, HttpStatus, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { profile } from 'console';
 import { Profile } from 'src/users/schemas/users.schema';
 import { UsersService } from 'src/users/users.service';
@@ -10,7 +10,10 @@ import { SwitchProfileDto } from './dto/switch_profile.dto';
 
 @Injectable()
 export class ProfileService {
-    constructor(private readonly usersService: UsersService, private readonly jwtService: JwtService) {}
+    constructor(
+        @Inject(forwardRef(() => UsersService)) private readonly usersService: UsersService, 
+        private readonly jwtService: JwtService
+    ) {}
 
     async getUserProfiles(userToken: accessTokenType): Promise<{'selectedProfile': Profile, 'availableProfiles': Profile[]}> {
         try {

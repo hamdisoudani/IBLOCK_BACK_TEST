@@ -1,11 +1,15 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { AdminController } from './admin.controller';
 import { SchoolModule } from 'src/school/school.module';
+import { ProjectsModule } from 'src/projects/projects.module';
+import { UsersModule } from 'src/users/users.module';
 
 @Module({
   imports: [
-    SchoolModule
+    SchoolModule,
+    UsersModule,
+    forwardRef(() => ProjectsModule)
   ],
   controllers: [AdminController],
   providers: [AdminService],

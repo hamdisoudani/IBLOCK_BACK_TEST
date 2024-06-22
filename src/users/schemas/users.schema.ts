@@ -1,13 +1,14 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { IsEnum, IsOptional } from "class-validator";
 import { HydratedDocument, Types } from "mongoose";
+import { School } from "src/school/schemas/school.schema";
 
 export enum Role {
-    ADMIN = 'admin',
     STUDENT = 'student',
     TEACHER = 'teacher',
     ROBOTADMIN= "robot_admin",
-    SUPER_ADMIN = 'super_admin'
+    SUPER_ADMIN = 'super_admin',
+    SCHOOL_ADMIN = 'school_admin'
 }
 
 export enum ProfileType {
@@ -52,6 +53,9 @@ export class Users {
 
     @Prop({ type: [Profile] })
     profiles: Profile[];
+
+    @Prop({ type: Types.ObjectId, ref: School.name, required: false })
+    schoolID?: Types.ObjectId
 }
 
 export const usersSchema = SchemaFactory.createForClass(Users);

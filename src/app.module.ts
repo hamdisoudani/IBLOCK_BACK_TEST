@@ -21,6 +21,7 @@ import { DeviceTypesModule } from './devices_and_blocks/device_types/device_type
 import { DeviceModule } from './devices_and_blocks/device/device.module';
 import { BlocksModule } from './devices_and_blocks/blocks/blocks.module';
 import { MetaProjectsModule } from './meta_projects/meta_projects.module';
+import { SchoolAdminModule } from './school_admin/school_admin.module';
 
 
 @Module({
@@ -40,7 +41,6 @@ import { MetaProjectsModule } from './meta_projects/meta_projects.module';
     AdminModule,
     JwtModule,
     SchoolModule,
-    ClassModule,
     ProjectsModule,
     BlocksModule,
     RequestCreateClassModule,
@@ -48,7 +48,8 @@ import { MetaProjectsModule } from './meta_projects/meta_projects.module';
     RobotSocketEventsModule,
     DeviceTypesModule,
     DeviceModule,
-    MetaProjectsModule
+    MetaProjectsModule,
+    SchoolAdminModule
   ],
   controllers: [AppController],
   providers: [

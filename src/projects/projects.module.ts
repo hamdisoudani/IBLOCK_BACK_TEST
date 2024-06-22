@@ -11,7 +11,7 @@ import { ProjectWorkHistory, ProjectWorkHistorySchema } from './schemas/work_his
   imports: [
     MongooseModule.forFeature([{ name: Project.name, schema: ProjectSchema }, { name: ProjectWorkHistory.name, schema: ProjectWorkHistorySchema }]),
     ProfileModule,
-    forwardRef(() => ClassModule)
+    // forwardRef(() => ClassModule)
   ],
   controllers: [ProjectsController],
   providers: [ProjectsService],

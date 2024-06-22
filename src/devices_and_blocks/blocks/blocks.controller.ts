@@ -75,7 +75,7 @@ export class BlocksController {
     }
   }
 
-  @Roles(Role.ADMIN, Role.STUDENT, Role.TEACHER)
+  @Roles(Role.ROBOTADMIN, Role.STUDENT, Role.TEACHER)
   @Get('predefined')
   async getPredefinedBlocks(@Req() request: Request) {
     try {

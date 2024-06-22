@@ -8,8 +8,10 @@ import { AuthGuard } from '@nestjs/passport';
 import { accessTokenType } from 'src/utils/types/access_token.type';
 import { Public, Roles } from 'src/utils/decorator/middleware.decorator';
 import { Role } from './schemas/users.schema';
+import { RoleGuard } from 'src/middleware/role.guard';
 
 @Controller('users')
+@UseGuards(RoleGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -31,23 +33,23 @@ export class UsersController {
     }
   }
 
-  // @Post('/robot_admin/signup')
-  // @Public()
+  @Post('/super_admin/signup')
+  @Public()
 
-  // async robotAdminSignup(@Body() body: StudentSignUpDto) {
-  //   try {
+  async robotAdminSignup(@Body() body: StudentSignUpDto) {
+    try {
       
-  //     const robotAdmin = await this.usersService.adminSignUp(body);
-  //     if(!robotAdmin) throw new UnauthorizedException()
+      const robotAdmin = await this.usersService.adminSignUp(body);
+      if(!robotAdmin) throw new UnauthorizedException()
 
-  //     return {
-  //       message: "Your account created successfully",
-  //       user: robotAdmin
-  //     }
-  //   } catch (error) {
-  //     throw error;
-  //   }
-  // }
+      return {
+        message: "Your account created successfully",
+        user: robotAdmin
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
 
   @Post('/teacher/signup')
   @Public()
@@ -65,23 +67,6 @@ export class UsersController {
       throw error;
     }
   }
-
-  // @Post('/admin/signup')
-  // @Public()
-  // async adminSignUp(@Body() body: TeacherSignUpDto) {
-  //   try {
-      
-  //     const teacher = await this.usersService.adminSignUp(body);
-  //     if(!teacher) throw new UnauthorizedException()
-
-  //     return {
-  //       message: "Your account created successfully",
-  //       teacher
-  //     }
-  //   } catch (error) {
-  //     throw error;
-  //   }
-  // }
 
   @Post('/signin')
   @Public()
@@ -103,6 +88,7 @@ export class UsersController {
   }
 
 
+  @Roles(Role.SUPER_ADMIN, Role.STUDENT, Role.TEACHER, Role.ROBOTADMIN)
   @Get('/profile')
   async getUserProfiles(@Req() req : Request) {
     try {
@@ -116,7 +102,7 @@ export class UsersController {
     }
   }
 
-  @Roles(Role.ADMIN, Role.STUDENT, Role.TEACHER, Role.ROBOTADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.STUDENT, Role.TEACHER, Role.ROBOTADMIN)
   @Get('/whoami')
   async whoami(@Req() req: Request) {
     try {
