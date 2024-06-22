@@ -53,7 +53,7 @@ export class UsersService {
         }
     }
 
-    private generateInitialProfiles(): Profile[] {
+    generateInitialProfiles(): Profile[] {
         return [
             { type: ProfileType.PERSONAL, profileName: 'Personal' },
             // { type: ProfileType.SCHOOL, profileName: 'Intellect School' } // Assuming 'intellect' is a valid company ID 

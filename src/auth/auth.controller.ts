@@ -1,70 +1,72 @@
-import { Controller, Post, Body, Res, HttpStatus, HttpCode, Get, UseFilters } from '@nestjs/common';
+import { Controller, Post, Body, Res, HttpStatus, HttpCode, Get, UseFilters, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Response } from 'express';
+import { Public } from 'src/utils/decorator/middleware.decorator';
+import { UsersService } from 'src/users/users.service';
+import { StudentSignUpDto } from 'src/users/dto/student_signup.dto';
+import { TeacherSignUpDto } from 'src/users/dto/teacher_signup.dto';
+import { GlobalSignInDto } from 'src/users/dto/signin.dto';
+import { RoleGuard } from 'src/middleware/role.guard';
 
 @Controller('auth')
+@UseGuards(RoleGuard)
 export class AuthController {
-  // constructor(
-  //   private readonly authService: AuthService,
-  //   private readonly studentService: StudentService
-  // ) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly usersService: UsersService
+  ) {}
 
 
-  // @Post('student/register')
-  // async signUpStudent(@Body() StudentDto: StudentSignUpDto, @Res() res: Response) {
-  //   try {
-  //     const user = await this.studentService.signUpStudent(StudentDto);
-  //     if(user) {
-  //       return res.status(200).json({
-  //         'message': "Your accound created successfully."
-  //       })
-  //     }
-  //     return res.status(400).json({
-  //       'message': "Bad request"
-  //     })
-  //   } catch (error) {
-  //     throw error;
-  //   }
-  // }
+  @Post('/teacher/signup')
+  @Public()
+  async teacherSignUp(@Body() body: TeacherSignUpDto) {
+    try {
+      
+      const teacher = await this.usersService.teacherSignUp(body);
+      if(!teacher) throw new UnauthorizedException()
 
-  // @Post('student/login')
-  // async loginStudent(@Body() studentLoginDto: StudentLoginDto, @Res() res: Response) {
-  //   try {
-  //     const {accessToken} = await this.studentService.studentLogin(studentLoginDto);
-  //     if(accessToken) {
-  //       return res.status(200).json({
-  //         accessToken
-  //       })
-  //     }
-  //     return res.status(400).json({
-  //       'message': "Bad request"
-  //     })
-  //   } catch (error) {
-  //     throw error;
-  //   }
-  // }
+      return {
+        message: "Your account created successfully",
+        teacher
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
 
-  // // @Post('teacher/register')
-  // // async signUpTeacher(@Body() TeacherDto: TeacherRegisterDto) {
-  // //   try {
-  // //     const user = await this.authService.signUpTeacher(TeacherDto);
-  // //     return {
-  // //       "teacher": user
-  // //     }
-  // //   } catch (error) {
-  // //     throw error
-  // //   }
-  // // }
+  @Public()
+  @Post('/student/signup')
+  async studentSignUp(@Body() body: StudentSignUpDto) {
+    try {
+      
+      const student = await this.usersService.studentSignUp(body);
+      if(!student) throw new UnauthorizedException()
 
+      return {
+        message: "Your account created successfully",
+        student
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
 
+  @Post('/signin')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  async SignIn(@Body() body: GlobalSignInDto) {
+    try {
+      
+      const {accessToken, user} = await this.usersService.SignIn(body);
+      if(!accessToken) throw new UnauthorizedException("Invalid credentials");
 
-  // // @Post('teacher/login')
-  // // @HttpCode(HttpStatus.OK)
-  // // async teacherLogin(@Body() teacherLoginDto: TeacherLoginDto) {
-  // //   try {
-  // //     return await this.authService.teacherSignIn(teacherLoginDto);
-  // //   } catch (error) {
-  // //     throw error;
-  // //   }
-  // // }
+      return {
+        message: "You've successully logged in",
+        accessToken,
+        user
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
 }

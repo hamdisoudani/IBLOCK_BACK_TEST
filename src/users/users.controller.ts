@@ -8,28 +8,14 @@ import { AuthGuard } from '@nestjs/passport';
 import { accessTokenType } from 'src/utils/types/access_token.type';
 import { Public, Roles } from 'src/utils/decorator/middleware.decorator';
 import { Role } from './schemas/users.schema';
+import { RoleGuard } from 'src/middleware/role.guard';
 
 @Controller('users')
+@UseGuards(RoleGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Post('/student/signup')
-  @Public()
-
-  async studentSignUp(@Body() body: StudentSignUpDto) {
-    try {
-      
-      const student = await this.usersService.studentSignUp(body);
-      if(!student) throw new UnauthorizedException()
-
-      return {
-        message: "Your account created successfully",
-        student
-      }
-    } catch (error) {
-      throw error;
-    }
-  }
+  
 
   // @Post('/robot_admin/signup')
   // @Public()
@@ -49,23 +35,6 @@ export class UsersController {
   //   }
   // }
 
-  @Post('/teacher/signup')
-  @Public()
-  async teacherSignUp(@Body() body: TeacherSignUpDto) {
-    try {
-      
-      const teacher = await this.usersService.teacherSignUp(body);
-      if(!teacher) throw new UnauthorizedException()
-
-      return {
-        message: "Your account created successfully",
-        teacher
-      }
-    } catch (error) {
-      throw error;
-    }
-  }
-
   // @Post('/admin/signup')
   // @Public()
   // async adminSignUp(@Body() body: TeacherSignUpDto) {
@@ -82,27 +51,7 @@ export class UsersController {
   //     throw error;
   //   }
   // }
-
-  @Post('/signin')
-  @Public()
-  @HttpCode(HttpStatus.OK)
-  async SignIn(@Body() body: GlobalSignInDto) {
-    try {
-      
-      const {accessToken, user} = await this.usersService.SignIn(body);
-      if(!accessToken) throw new UnauthorizedException("Invalid credentials");
-
-      return {
-        message: "You've successully logged in",
-        accessToken,
-        user
-      }
-    } catch (error) {
-      throw error;
-    }
-  }
-
-
+  
   @Get('/profile')
   async getUserProfiles(@Req() req : Request) {
     try {
