@@ -4,5 +4,6 @@ export type accessTokenType = {
     role: string,
     activeProfileId: string,
     iat: number,
-    name: string
+    name: string,
+    schoolId?: string
 }

@@ -146,7 +146,7 @@ export class ClassService {
             // return fullClassDetails;
             const members = await schoolClass.populate({ path : 'members', select: { "_id": 1, "name": 1, "email": 1, "role": 1 }});
             const getSchoolInformation = await this.schoolService.findSchoolById(schoolClass._id);
-            const projects = await this.projectService.getProjectsByClass(classId);
+            //const projects = await this.projectService.getProjectsByClass(classId);
 
             // Use mongodb aggregation pipelines to get class school information
             const pipeline = fetchClassInformationPipeline(classId);

@@ -5,7 +5,7 @@ import { Model, Types } from 'mongoose';
 import { CreateProjectDto } from './dto/create_project.dto';
 import { accessTokenType } from 'src/utils/types/access_token.type';
 import { ProfileService } from 'src/profile/profile.service';
-import { ProfileType, Role } from 'src/users/schemas/users.schema';
+import { profileDocument, ProfileType, Role } from 'src/users/schemas/users.schema';
 import { ClassService } from 'src/class/class.service';
 import { ProjectWorkHistory, ProjectWorkHistoryDocument } from './schemas/work_history.schema';
 import { StoreUserWorkDto } from './dto/store_user_work.dto';
@@ -24,7 +24,7 @@ export class ProjectsService {
         @InjectModel(Project.name) private readonly projectModel: Model<Project>,
         @InjectModel(ProjectWorkHistory.name) private readonly ProjectWorkHistoryModel: Model<ProjectWorkHistory>,
         private readonly profileService: ProfileService,
-        @Inject(forwardRef(() => ClassService)) private readonly classService: ClassService
+        //@Inject(forwardRef(() => ClassService)) private readonly classService: ClassService
     ) {}
 
     generateInvitationCode(): string {
@@ -50,18 +50,18 @@ export class ProjectsService {
 
             if(selectedProfile.type == ProfileType.SCHOOL && user.role != Role.TEACHER) throw new UnauthorizedException("You're not authorized to add a new project");
             
-            // Check if classId is in the request body
-            if(!body.classId || body.classId == "") throw new BadRequestException("You need to pick a class for your new project");
+            // // Check if classId is in the request body
+            // if(!body.classId || body.classId == "") throw new BadRequestException("You need to pick a class for your new project");
 
-            // Check if the class exists
-            const classData = await this.classService.getClassById(body.classId);
-            if(!classData) throw new BadRequestException("Class doesn't exist");
+            // // Check if the class exists
+            // const classData = await this.classService.getClassById(body.classId);
+            // if(!classData) throw new BadRequestException("Class doesn't exist");
 
-            // Check if the current school project match the current user profile
-            if(!classData.schoolId.equals(selectedProfile.school)) throw new UnauthorizedException("You're not authorized");
+            // // Check if the current school project match the current user profile
+            // if(!classData.schoolId.equals(selectedProfile.school)) throw new UnauthorizedException("You're not authorized");
 
-            // Check if the user is member in the class
-            if(!classData.members.includes(new Types.ObjectId(user.userId))) throw new UnauthorizedException("You must be a member of the class to add new projects")
+            // // Check if the user is member in the class
+            // if(!classData.members.includes(new Types.ObjectId(user.userId))) throw new UnauthorizedException("You must be a member of the class to add new projects")
 
             const schoolId = selectedProfile.school;
             const projectModel = new this.projectModel({
@@ -214,22 +214,22 @@ export class ProjectsService {
         }
     }
 
-    async getProjectsByClass(classId: string): Promise<ProjectDocument[]> {
-        try {
-            // Check if the class exist
-            const isClassExist = this.classService.getClassById(classId);
-            if(!isClassExist) throw new BadRequestException("Class not found");
+    // async getProjectsByClass(classId: string): Promise<ProjectDocument[]> {
+    //     try {
+    //         // Check if the class exist
+    //         const isClassExist = this.classService.getClassById(classId);
+    //         if(!isClassExist) throw new BadRequestException("Class not found");
 
-            const allProjects = this.projectModel.find({ classId })
+    //         const allProjects = this.projectModel.find({ classId })
 
-            return allProjects;
-        } catch (error) {
-            if(error instanceof BadRequestException) {
-                throw error;
-            }
-            throw new InternalServerErrorException(error);
-        }
-    }
+    //         return allProjects;
+    //     } catch (error) {
+    //         if(error instanceof BadRequestException) {
+    //             throw error;
+    //         }
+    //         throw new InternalServerErrorException(error);
+    //     }
+    // }
 
     async storeUserWorkData(body: StoreUserWorkDto, user: accessTokenType): Promise<{ message: string }> {
         try {
@@ -716,6 +716,70 @@ export class ProjectsService {
     async getAllProjectsUnderMetaProjectForTeacher(metaProjectId: string): Promise<ProjectDocument[]> {
         try {
             const projects = await this.projectModel.find({ metaProjectID: new Types.ObjectId(metaProjectId) });
+            return projects;
+        } catch (error) {
+            throw new InternalServerErrorException("An error occurred while fetching the projects");
+        }
+    }
+
+    async getProjectStatsForSuperAdmin(): Promise<{totalProjects: number, totalPersonalProjects: number, totalTeamProjects: number, totalMetaProjects: number, recentProjects: ProjectDocument[], recentMpProjects: ProjectDocument[]}>{
+        try {
+            const totalProjects = await this.projectModel.countDocuments();
+            const totalPersonalProjects = await this.projectModel.countDocuments({ projectType: ProjectType.PERSONAL });
+            const totalTeamProjects = await this.projectModel.countDocuments({ projectType: ProjectType.TEAM });
+            const totalMetaProjects = await this.projectModel.countDocuments({ projectType: ProjectType.META_PROJECT });
+            const recentProjects = await this.projectModel.find({ projectType: ProjectType.PERSONAL || ProjectType.TEAM }).sort({ createdAt: -1 }).limit(5);
+            const recentMpProjects = await this.projectModel.find({ projectType: ProjectType.META_PROJECT }).sort({ createdAt: -1 }).limit(5);
+            return {
+                totalProjects,
+                totalPersonalProjects,
+                totalTeamProjects,
+                totalMetaProjects,
+                recentProjects,
+                recentMpProjects
+            }
+        } catch (error) {
+            throw new InternalServerErrorException("An error occurred while fetching the projects");
+        }
+    }
+
+    async getAllProjectsByUserID(userID: string): Promise<{ ownedProjects: ProjectDocument[], joinedProjects: ProjectDocument[]}> {
+        try {
+            const ownedProjects = await this.projectModel.find({ projectOwner: new Types.ObjectId(userID) });
+
+            const joinedProjects = await this.projectModel.find({ members: new Types.ObjectId(userID) });
+
+            return {
+                ownedProjects,
+                joinedProjects
+            }
+        } catch (error) {
+            throw new InternalServerErrorException("An error occurred while fetching the projects");
+        }
+    }
+
+
+    // Delete project : This function is being used by the super admin to delete a project
+    async deleteProject(projectId: string): Promise<{ message: string }> {
+        try {
+            // Check if the project exist
+            const isProjectExists = await this.projectModel.exists({ _id: projectId });
+            if(!isProjectExists) throw new BadRequestException("Project not found");
+
+            await this.projectModel.deleteOne({ _id: projectId });
+
+            // Delete joined users work history
+            await this.ProjectWorkHistoryModel.deleteMany({ projectId: new Types.ObjectId(projectId) });
+
+            return { message: "Project removed successfully" };
+        } catch (error) {
+            throw new InternalServerErrorException(error);
+        }
+    }
+
+    async getProjectsUnderSchool(userID: string, schoolId: string): Promise<ProjectDocument[]> {
+        try {
+            const projects = await this.projectModel.find({ schoolId, members: new Types.ObjectId(userID)}).select('projectName projectDescription projectType createdAt updatedAt members projectOwner');
             return projects;
         } catch (error) {
             throw new InternalServerErrorException("An error occurred while fetching the projects");

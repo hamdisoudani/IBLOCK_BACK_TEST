@@ -17,24 +17,25 @@ export class UsersController {
 
   
 
-  // @Post('/robot_admin/signup')
-  // @Public()
+  @Post('/super_admin/signup')
+  @Public()
 
-  // async robotAdminSignup(@Body() body: StudentSignUpDto) {
-  //   try {
+  async robotAdminSignup(@Body() body: StudentSignUpDto) {
+    try {
       
-  //     const robotAdmin = await this.usersService.adminSignUp(body);
-  //     if(!robotAdmin) throw new UnauthorizedException()
+      const robotAdmin = await this.usersService.adminSignUp(body);
+      if(!robotAdmin) throw new UnauthorizedException()
 
-  //     return {
-  //       message: "Your account created successfully",
-  //       user: robotAdmin
-  //     }
-  //   } catch (error) {
-  //     throw error;
-  //   }
-  // }
+      return {
+        message: "Your account created successfully",
+        user: robotAdmin
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
 
+<<<<<<< HEAD
   // @Post('/admin/signup')
   // @Public()
   // async adminSignUp(@Body() body: TeacherSignUpDto) {
@@ -52,6 +53,46 @@ export class UsersController {
   //   }
   // }
   
+=======
+  @Post('/teacher/signup')
+  @Public()
+  async teacherSignUp(@Body() body: TeacherSignUpDto) {
+    try {
+      
+      const teacher = await this.usersService.teacherSignUp(body);
+      if(!teacher) throw new UnauthorizedException()
+
+      return {
+        message: "Your account created successfully",
+        teacher
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  @Post('/signin')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  async SignIn(@Body() body: GlobalSignInDto) {
+    try {
+      
+      const {accessToken, user} = await this.usersService.SignIn(body);
+      if(!accessToken) throw new UnauthorizedException("Invalid credentials");
+
+      return {
+        message: "You've successully logged in",
+        accessToken,
+        user
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+
+  @Roles(Role.SUPER_ADMIN, Role.STUDENT, Role.TEACHER, Role.ROBOTADMIN)
+>>>>>>> 142f446e9761e5259e710d13600e9f089965fa32
   @Get('/profile')
   async getUserProfiles(@Req() req : Request) {
     try {
@@ -65,7 +106,7 @@ export class UsersController {
     }
   }
 
-  @Roles(Role.ADMIN, Role.STUDENT, Role.TEACHER, Role.ROBOTADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.STUDENT, Role.TEACHER, Role.ROBOTADMIN)
   @Get('/whoami')
   async whoami(@Req() req: Request) {
     try {
