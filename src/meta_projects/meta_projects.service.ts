@@ -128,7 +128,7 @@ export class MetaProjectsService {
         }
     }
 
-    async create(body: CreateMetaProjectDto, user: accessTokenType): Promise<{message: string, metaProject: MetaProjectDocument}> {
+    async createMetaProject(body: CreateMetaProjectDto, user: accessTokenType): Promise<{message: string, metaProject: MetaProjectDocument}> {
         try {
             const { selectedProfile } = await this.profileService.getUserProfiles(user);
 
@@ -276,7 +276,7 @@ export class MetaProjectsService {
         }
     }
 
-    async join(body: JoinCollaborativeMpDto, user: accessTokenType): Promise<{message: string, createdProject?: Project}> {
+    async joinProjectUnderMetaProject(body: JoinCollaborativeMpDto, user: accessTokenType): Promise<{message: string, createdProject?: Project}> {
         try {
             // check if the student profile is a school profile
             const { selectedProfile } = await this.profileService.getUserProfiles(user);
@@ -549,6 +549,15 @@ export class MetaProjectsService {
         } catch(e) {
             if(e instanceof BadRequestException || e instanceof UnauthorizedException) throw e;
             throw new InternalServerErrorException('An error occurred while fetching the projects');
+        }
+    }
+
+    async getMetaProjectsForSpecificTeacher(teacherId: string): Promise<{metaProjects: MetaProjectDocument[]}> {
+        try {
+            const metaProjects = await this.metaProjectModel.find({ createdBy: new Types.ObjectId(teacherId) }).select('projectName projectDescription collaborative invitationCode members createdAt');
+            return { metaProjects };
+        } catch (error) {
+            throw error;
         }
     }
 }

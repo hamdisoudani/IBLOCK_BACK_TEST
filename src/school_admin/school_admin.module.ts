@@ -4,6 +4,7 @@ import { SchoolAdminController } from './school_admin.controller';
 import { UsersModule } from 'src/users/users.module';
 import { SchoolModule } from 'src/school/school.module';
 import { ProjectsModule } from 'src/projects/projects.module';
+import { MetaProjectsModule } from 'src/meta_projects/meta_projects.module';
 
 @Module({
   controllers: [SchoolAdminController],
@@ -11,7 +12,8 @@ import { ProjectsModule } from 'src/projects/projects.module';
   imports: [
     UsersModule,
     SchoolModule,
-    ProjectsModule
+    ProjectsModule,
+    MetaProjectsModule
   ]
 })
 export class SchoolAdminModule {}

@@ -23,7 +23,7 @@ export class MetaProjectsController {
   async createMetaProject(@Body() body: CreateMetaProjectDto, @Req() request: Request) {
     try {
       const user = request.user as accessTokenType;
-      const {message, metaProject} = await this.metaProjectsService.create(body, user);
+      const {message, metaProject} = await this.metaProjectsService.createMetaProject(body, user);
 
       return {message, metaProject};
     } catch (error) {
@@ -61,7 +61,7 @@ export class MetaProjectsController {
   async joinMetaProject(@Body() body: JoinCollaborativeMpDto, @Req() request: Request) {
     try {
       const user = request.user as accessTokenType;
-      const response= await this.metaProjectsService.join(body, user);
+      const response= await this.metaProjectsService.joinProjectUnderMetaProject(body, user);
 
       return response;
     } catch (error) {

@@ -242,9 +242,11 @@ export class UsersService {
             const totalUsers = await this.usersModel.countDocuments();
             const totalTeachers = await this.usersModel.countDocuments({role: Role.TEACHER});
             const totalStudents = await this.usersModel.countDocuments({role: Role.STUDENT});
-            const totalAdmins = await this.usersModel.countDocuments({role: Role.SUPER_ADMIN});
-            const recentUsers = await this.usersModel.find().select('email name role').sort({createdAt: -1}).limit(5);
+            //count all users except teachers and students
+            const totalAdmins = await this.usersModel.countDocuments({role: {$in: [Role.SUPER_ADMIN, Role.SCHOOL_ADMIN, Role.ROBOTADMIN]}});
+            
 
+            const recentUsers = await this.usersModel.find().select('email name role createdAt').sort({createdAt: -1}).limit(5);
             return {
                 totalUsers,
                 totalTeachers,
@@ -259,7 +261,7 @@ export class UsersService {
 
     async getAllUsers(): Promise<usersDocument[]> {
         try {
-            const users = (await this.usersModel.find().select('email name role'));
+            const users = (await this.usersModel.find().select('email name role createdAt'));
             return users;
         } catch (error) {
             throw new InternalServerErrorException();

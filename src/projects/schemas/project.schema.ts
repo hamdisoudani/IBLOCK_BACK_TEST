@@ -5,8 +5,8 @@ import { Users } from "src/users/schemas/users.schema";
 
 export enum ProjectType {
     PERSONAL = 'personal',
-    TEAM = 'team',
-    META_PROJECT = 'meta_project'
+    META_PROJECT = 'meta_project',
+    TEAM = 'team'
 }
 
 @Schema({ timestamps: true })

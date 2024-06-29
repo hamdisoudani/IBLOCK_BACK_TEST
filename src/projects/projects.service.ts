@@ -779,7 +779,7 @@ export class ProjectsService {
 
     async getProjectsUnderSchool(userID: string, schoolId: string): Promise<ProjectDocument[]> {
         try {
-            const projects = await this.projectModel.find({ schoolId, members: new Types.ObjectId(userID)}).select('projectName projectDescription projectType createdAt updatedAt members projectOwner');
+            const projects = await this.projectModel.find({ schoolId: new Types.ObjectId(schoolId), members: new Types.ObjectId(userID)}).select('projectName projectDescription projectType createdAt updatedAt members projectOwner');
             return projects;
         } catch (error) {
             throw new InternalServerErrorException("An error occurred while fetching the projects");

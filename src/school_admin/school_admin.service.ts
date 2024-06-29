@@ -7,13 +7,16 @@ import { accessTokenType } from 'src/utils/types/access_token.type';
 import { schoolDocument } from 'src/school/schemas/school.schema';
 import { GetInformationAboutUserDto } from 'src/school/dto/get_information_about_user.dto';
 import { ProjectDocument } from 'src/projects/schemas/project.schema';
+import { MetaProjectsService } from 'src/meta_projects/meta_projects.service';
+import { MetaProjectDocument } from 'src/meta_projects/schema/meta_project.schema';
 
 @Injectable()
 export class SchoolAdminService {
     constructor(
         private readonly usersService: UsersService,
         private readonly schoolService: SchoolService,
-        private readonly projectsService: ProjectsService
+        private readonly projectsService: ProjectsService,
+        private readonly metaProjectsService: MetaProjectsService
     ) {}
 
     async checkCurrentUserPermission(user: accessTokenType): Promise<boolean> { 
@@ -59,10 +62,10 @@ export class SchoolAdminService {
         }
     }
 
-    async getSchoolStats(user: accessTokenType): Promise< {schoolName: string, totalMembers: number, studentsCount: number, teachersCount: number, projectsCount: number, metaProjectsCount: number, projectsDetails: any[], metaProjectsDetails: any[] } > {
+    async getSchoolStats(user: accessTokenType): Promise< {schoolName: string, totalMembers: number, studentsCount: number, teachersCount: number, projectsCount: number, metaProjectsCount: number, projectsDetails: any[], metaProjectsDetails: any[], last5Users: usersDocument[] } > {
         try {
-            const acess = await this.checkCurrentUserPermission(user);
-            if(!acess) throw new UnauthorizedException('You are not authorized to access this route');
+            const access = await this.checkCurrentUserPermission(user);
+            if(!access) throw new UnauthorizedException('You are not authorized to access this route');
             const details = await this.schoolService.getStatsForCurrentSchool(user.schoolId);
             return details;
         } catch (error) {
@@ -70,15 +73,16 @@ export class SchoolAdminService {
         }
     }
 
-    async getUserStats(userToken: accessTokenType, body: GetInformationAboutUserDto): Promise<{userInfromation: usersDocument, getUserProjects: ProjectDocument[]}> {
+    async getUserStats(userToken: accessTokenType, body: GetInformationAboutUserDto): Promise<{userInfromation: usersDocument, getUserProjects: ProjectDocument[], createdMetaProjects: MetaProjectDocument[]}> {
         try {
             const access = await this.checkCurrentUserPermission(userToken);
             if(!access) throw new UnauthorizedException('You are not authorized to access this route');
             const informations = await this.schoolService.getInformationAboutUser(userToken, body);
+            const { metaProjects } = await this.metaProjectsService.getMetaProjectsForSpecificTeacher(body.userID);
             return {
                 userInfromation: informations.userInformation,
-                getUserProjects: informations.getUserProjects
-            
+                getUserProjects: informations.getUserProjects,
+                createdMetaProjects: metaProjects
             }
         } catch (error) {
             if(error instanceof UnauthorizedException || error instanceof BadRequestException) {

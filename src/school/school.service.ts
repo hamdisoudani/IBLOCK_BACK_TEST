@@ -127,7 +127,6 @@ export class SchoolService {
 
             school.members.push(userIdObjectId);
             await school.save();
-            console.log("working")
             const user = await this.usersService.findUserByEmail(userData.email);
             console.log("user", user)
             if(!user) throw new UnauthorizedException("You're not authorized to perform this action");
@@ -174,7 +173,7 @@ export class SchoolService {
             const users = await this.schoolModel.aggregate([
                 {
                     $match: {
-                        _id: new Types.ObjectId("65f4632aefcf71ad374f36e1")
+                        _id: new Types.ObjectId(schoolID)
                     }
                 },
                 {
@@ -195,7 +194,7 @@ export class SchoolService {
                                     pipeline: [
                                         {
                                             $match: {
-                                                schoolId: new Types.ObjectId("65f4632aefcf71ad374f36e1"),
+                                                schoolId: new Types.ObjectId(schoolID),
                                                 projectType: ProjectType.META_PROJECT
                                             }
                                         }
@@ -211,7 +210,7 @@ export class SchoolService {
                                     pipeline: [
                                         {
                                             $match: {
-                                                schoolId: new Types.ObjectId("65f4632aefcf71ad374f36e1")
+                                                schoolId: new Types.ObjectId(schoolID)
                                             }
                                         }
                                     ]
@@ -227,7 +226,7 @@ export class SchoolService {
                                     pipeline: [
                                         {
                                             $match: {
-                                                schoolId: new Types.ObjectId("65f4632aefcf71ad374f36e1")
+                                                schoolId: new Types.ObjectId(schoolID)
                                             }
                                         }
                                     ]
@@ -288,13 +287,13 @@ export class SchoolService {
         }
     }
 
-    async getStatsForCurrentSchool(schoolID: string): Promise< {schoolName: string, totalMembers: number, studentsCount: number, teachersCount: number, projectsCount: number, metaProjectsCount: number, projectsDetails: any[], metaProjectsDetails: any[] } > {
+    async getStatsForCurrentSchool(schoolID: string): Promise< {schoolName: string, totalMembers: number, studentsCount: number, teachersCount: number, projectsCount: number, metaProjectsCount: number, projectsDetails: any[], metaProjectsDetails: any[], last5Users: usersDocument[] } > {
         try {
             // Get all users count
             const details = await this.schoolModel.aggregate([
                 {
                     $match: {
-                        _id: new Types.ObjectId("65f4632aefcf71ad374f36e1")
+                        _id: new Types.ObjectId(schoolID)
                     }
                 },
                 {
@@ -454,7 +453,8 @@ export class SchoolService {
                         projectsCount: 1,
                         metaProjectsCount: 1,
                         projectsDetails: { $slice: ["$projectsDetails", -5] },
-                        metaProjectsDetails: { $slice: ["$metaProjectsDetails", -5] }
+                        metaProjectsDetails: { $slice: ["$metaProjectsDetails", -5] },
+                        last5Users: { $slice: ["$membersDetails", -5] }
                     }
                 }
             ]);
@@ -476,7 +476,7 @@ export class SchoolService {
             const userInformation = await this.usersService.getUserInformation(body.userID);
 
             const getUserProjects = await this.projectsService.getProjectsUnderSchool(body.userID, user.schoolId);
-
+            
             return {
                 userInformation,
                 getUserProjects
