@@ -12,5 +12,6 @@ import { BlocksCategory, BlocksCategorySchema } from './schemas/blocks_category.
   ],
   controllers: [BlocksController],
   providers: [BlocksService],
+  exports: [BlocksService]
 })
 export class BlocksModule {}

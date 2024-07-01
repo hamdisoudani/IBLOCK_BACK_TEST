@@ -44,7 +44,7 @@ export class BlocksController {
     }
   }
 
-  @Roles('admin')
+  @Roles(Role.ROBOTADMIN)
   @Post('category')
   async addCategory(@Body() body: CreateCategoryDto, @Req() request: Request) {
     try {
@@ -53,6 +53,22 @@ export class BlocksController {
 
       return {
         "message": "New category created successfully",
+        category
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  @Roles(Role.ROBOTADMIN)
+  @Post('category/update')
+  async updateCategory(@Body() body: CreateCategoryDto, @Req() request: Request) {
+    try {
+      const token = request.user as accessTokenType;
+      const category = await this.blocksService.updateCategory(body, token);
+
+      return {
+        "message": "Category updated successfully",
         category
       }
     } catch (error) {
